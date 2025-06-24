@@ -5,6 +5,8 @@ from sklearn.preprocessing import KBinsDiscretizer
 from itertools import combinations
 from tqdm import tqdm
 
+seed = seed if seed else 42
+
 def normalize_by_abs_sum(args):
     abs_sum = sum([abs(arg) for arg in args ])
     return [abs(arg)/abs_sum for arg in args ]
@@ -21,7 +23,7 @@ def compute_joint_mutual_info(X, y):
     X_joint = np.array([hash(tuple(row)) for row in X])
     return mutual_info_score(X_joint, y)
 
-def adaptive_band_selection(data, labels, num_bands=12, lam=0.3, n_bins=20, onlyScore=[], modified=False):
+def adaptive_band_selection(data, labels, num_bands=12, lam=0.3, n_bins=20, onlyScore=[], modified=False, seed=42):
     H, W, B = data.shape
     X = data.reshape(-1, B)
     print(X.shape)
@@ -40,7 +42,7 @@ def adaptive_band_selection(data, labels, num_bands=12, lam=0.3, n_bins=20, only
     print(Xl_disc[:6, 0])
 
     # Compute MI(Xl_j; C)
-    mi_class = mutual_info_classif(Xl_disc, yl, discrete_features=True)
+    mi_class = mutual_info_classif(Xl_disc, yl, discrete_features=True, random_state=seed)
     print('Mutual Information between bands and labels')
     for band in range(0, mi_class.shape[0], mi_class.shape[0]//4):
         print(f'band {band}:', mi_class[band])
