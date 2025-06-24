@@ -5,6 +5,10 @@ from sklearn.preprocessing import KBinsDiscretizer
 from itertools import combinations
 from tqdm import tqdm
 
+def normalize_by_abs_sum(args):
+    abs_sum = sum([abs(arg) for arg in args ])
+    return [abs(arg)/abs_sum for arg in args ]
+
 def compute_entropy(x, n_bins):
     """Estimate entropy using histogram bins."""
     hist, _ = np.histogram(x, bins=n_bins, density=True)
@@ -52,6 +56,7 @@ def adaptive_band_selection(data, labels, num_bands=12, lam=0.3, n_bins=20, only
     selected = []
     remaining = list(range(B))
     final_score = 0
+    score_comp_ratio = []
 
     if not onlyScore:
         for _ in tqdm(range(num_bands), desc="Band selection"):
@@ -81,11 +86,17 @@ def adaptive_band_selection(data, labels, num_bands=12, lam=0.3, n_bins=20, only
                         redun += mutual_info_score(Xu_disc[:, j], Xu_disc[:, m])
                     redun = 2 * redun / (d * (d - 1))
 
-                score = rel - disred + lam * (div - redun)
+                if not modified:
+                    score = rel - disred + lam * (div - redun)
+                else:
+                    score = rel - disred - lam * (div + redun)
 
                 if score > best_score:
                     best_score = score
                     best_band = band
+
+                    comp_ratio = normalize_by_abs_sum([rel, disred, lam * div, lam* redun])
+                    score_comp_ratio.append(comp_ratio)
 
             final_score = best_score
             selected.append(best_band)
@@ -113,13 +124,23 @@ def adaptive_band_selection(data, labels, num_bands=12, lam=0.3, n_bins=20, only
             for j, m in combinations(S, 2):
                 redun += mutual_info_score(Xu_disc[:, j], Xu_disc[:, m])
             redun = 2 * redun / (d * (d - 1))
+    
 
-    if not modified:
-        final_score = rel - disred + lam * (div - redun)
-    else:
-        final_score = rel - disred - lam * (div + redun)
+        if not modified:
+            final_score = rel - disred + lam * (div - redun)
+        else:
+            final_score = rel - disred - lam * (div + redun)
+        
+        comp_ratio = normalize_by_abs_sum([rel, disred, lam * div, lam* redun])
+        score_comp_ratio.append(comp_ratio)
 
     
     print(f'Final score: {final_score}\n')
+    score_comp_mean_perc = np.mean(score_comp_ratio, axis=0) * 100
+    print('Score comps mean ratio (%)')
+    print(f' rel: {score_comp_mean_perc[0]:.0f}')
+    print(f' disred: {score_comp_mean_perc[1]:.0f}')
+    print(f' lam * div: {score_comp_mean_perc[2]:0f}')
+    print(f' lam * redun: {score_comp_mean_perc[3]:0f}')
 
     return selected
